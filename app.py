@@ -1,12 +1,12 @@
 # ============================================================
 # PREVISÃO DA SITUAÇÃO DE ALUNOS
-# Árvore de Decisão + Avaliação + GridSearchCV + Gradio (tema roxo)
+# Árvore de Decisão + Avaliação + GridSearchCV + Streamlit (tema roxo)
 # ============================================================
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import gradio as gr
+import streamlit as st
 
 from sklearn.model_selection import (
     train_test_split,
@@ -27,221 +27,75 @@ from sklearn.pipeline import Pipeline
 
 
 # ============================================================
-# 1. DADOS
+# CONFIGURAÇÃO DA PÁGINA + CSS (TEMA ROXO)
 # ============================================================
 
-np.random.seed(42)
-
-N_ALUNOS = 500
-
-horas_estudo = np.random.uniform(0, 15, N_ALUNOS)
-
-faltas = np.random.poisson(lam=7, size=N_ALUNOS)
-faltas = np.clip(faltas, 0, 30)
-
-ruido = np.random.normal(0, 0.7, N_ALUNOS)
-
-nota = (
-    2.5
-    + 0.55 * horas_estudo
-    - 0.08 * faltas
-    + ruido
+st.set_page_config(
+    page_title="Previsão da Situação do Aluno",
+    page_icon="🎓",
+    layout="wide",
 )
 
-nota = np.clip(nota, 0, 10)
-nota = np.round(nota, 1)
-
-situacao = np.select(
-    [
-        nota >= 7,
-        nota >= 5
-    ],
-    [
-        "Aprovado",
-        "Recuperação"
-    ],
-    default="Reprovado"
-)
-
-df = pd.DataFrame({
-    "Horas_de_estudo": horas_estudo.round(1),
-    "Faltas": faltas,
-    "Nota": nota,
-    "Situacao": situacao
-})
-
-print("\n========== AMOSTRA DOS DADOS ==========")
-print(df.head())
-print("\n========== DISTRIBUIÇÃO DAS CLASSES ==========")
-print(df["Situacao"].value_counts())
-
-
-# ============================================================
-# 2. FEATURES (X) E TARGET (y)
-# ============================================================
-
-X = df[["Horas_de_estudo", "Faltas", "Nota"]]
-y = df["Situacao"]
-
-
-# ============================================================
-# 3. DIVISÃO TREINO / TESTE
-# ============================================================
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.20, random_state=42, stratify=y
-)
-
-
-# ============================================================
-# 4. PRÉ-PROCESSAMENTO
-# ============================================================
-
-features_numericas = ["Horas_de_estudo", "Faltas", "Nota"]
-features_categoricas = []
-
-preprocessador = ColumnTransformer(
-    transformers=[
-        ("numericas", "passthrough", features_numericas),
-        ("categoricas", OneHotEncoder(handle_unknown="ignore"), features_categoricas)
-    ],
-    remainder="drop"
-)
-
-
-# ============================================================
-# 5. MODELO BASE
-# ============================================================
-
-modelo_base = Pipeline(
-    steps=[
-        ("preprocessamento", preprocessador),
-        ("modelo", DecisionTreeClassifier(random_state=42))
-    ]
-)
-
-
-# ============================================================
-# 6. GRIDSEARCHCV
-# ============================================================
-
-param_grid = {
-    "modelo__max_depth": [2, 3, 4, 5, None],
-    "modelo__min_samples_split": [2, 5, 10, 20],
-    "modelo__min_samples_leaf": [1, 2, 5, 10]
+CSS_EXTRA = """
+<style>
+.stApp {
+    background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
 }
 
-cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+#cabecalho {
+    background: linear-gradient(90deg, #7c3aed 0%, #a855f7 60%, #c084fc 100%);
+    padding: 28px 32px;
+    border-radius: 20px;
+    color: white !important;
+    margin-bottom: 24px;
+}
+#cabecalho h1, #cabecalho p {
+    color: white !important;
+}
 
-grid_search = GridSearchCV(
-    estimator=modelo_base,
-    param_grid=param_grid,
-    cv=cv,
-    scoring="accuracy",
-    n_jobs=-1,
-    refit=True
-)
+section[data-testid="stSidebar"] {
+    background: #faf5ff;
+    border-right: 1px solid #e9d5ff;
+}
 
-print("\n========== OTIMIZANDO O MODELO ==========")
-grid_search.fit(X_train, y_train)
+div.stButton > button {
+    background: linear-gradient(90deg, #7c3aed 0%, #a855f7 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 0.6em 1.2em;
+    font-weight: 600;
+    width: 100%;
+}
+div.stButton > button:hover {
+    background: linear-gradient(90deg, #6d28d9 0%, #9333ea 100%);
+    color: white;
+}
 
-print("\nMelhores parâmetros:")
-print(grid_search.best_params_)
-print(f"\nMelhor acurácia média da validação: {grid_search.best_score_:.4f}")
+div[data-testid="stNumberInput"] input {
+    background-color: #faf5ff;
+    border: 1px solid #ddd6fe;
+    border-radius: 10px;
+}
 
-modelo = grid_search.best_estimator_
+.block-container {
+    max-width: 980px;
+    padding-top: 1.5rem;
+}
 
-
-# ============================================================
-# 7. AVALIAÇÃO NO CONJUNTO DE TESTE
-# ============================================================
-
-y_pred = modelo.predict(X_test)
-acuracia = accuracy_score(y_test, y_pred)
-
-print("\n========== AVALIAÇÃO NO TESTE ==========")
-print(f"Acurácia: {acuracia:.4f}")
-print("\nRelatório de classificação:")
-print(classification_report(y_test, y_pred, zero_division=0))
-
-
-# ============================================================
-# 8. MATRIZ DE CONFUSÃO
-# ============================================================
-
-classes = modelo.named_steps["modelo"].classes_
-matriz = confusion_matrix(y_test, y_pred, labels=classes)
-
-fig, ax = plt.subplots(figsize=(7, 6))
-disp = ConfusionMatrixDisplay(confusion_matrix=matriz, display_labels=classes)
-disp.plot(ax=ax, cmap="Purples", colorbar=False)
-ax.set_title("Matriz de Confusão - Situação dos Alunos", fontsize=14)
-plt.tight_layout()
-plt.savefig("matriz_confusao.png", dpi=300, bbox_inches="tight")
-plt.close(fig)
-
-
-# ============================================================
-# 9. VALIDAÇÃO CRUZADA
-# ============================================================
-
-scores_cv = cross_val_score(modelo, X_train, y_train, cv=cv, scoring="accuracy", n_jobs=-1)
-
-print("\n========== VALIDAÇÃO CRUZADA ==========")
-print("Scores:", scores_cv)
-print(f"Média: {scores_cv.mean():.4f}")
-print(f"Desvio padrão: {scores_cv.std():.4f}")
+#rodape {
+    text-align: center;
+    color: #8b5cf6;
+    font-size: 13px;
+    margin-top: 20px;
+}
+</style>
+"""
+st.markdown(CSS_EXTRA, unsafe_allow_html=True)
 
 
 # ============================================================
-# 10. IMPORTÂNCIA DAS FEATURES
-# ============================================================
-
-arvore = modelo.named_steps["modelo"]
-importancias = arvore.feature_importances_
-
-df_importancias = pd.DataFrame({
-    "Feature": features_numericas,
-    "Importancia": importancias
-}).sort_values("Importancia", ascending=False)
-
-print("\n========== IMPORTÂNCIA DAS FEATURES ==========")
-print(df_importancias)
-
-plt.figure(figsize=(8, 5))
-plt.barh(df_importancias["Feature"], df_importancias["Importancia"], color="#7c3aed")
-plt.xlabel("Importância")
-plt.ylabel("Feature")
-plt.title("Importância das Features")
-plt.gca().invert_yaxis()
-plt.tight_layout()
-plt.savefig("importancia_features.png", dpi=300, bbox_inches="tight")
-plt.close()
-
-
-# ============================================================
-# 11. VISUALIZAÇÃO DA ÁRVORE
-# ============================================================
-
-plt.figure(figsize=(22, 12))
-plot_tree(
-    arvore,
-    feature_names=features_numericas,
-    class_names=arvore.classes_,
-    filled=True,
-    rounded=True,
-    proportion=False,
-    precision=2,
-    fontsize=10
-)
-plt.title("Árvore de Decisão - Classificação da Situação dos Alunos", fontsize=18)
-plt.tight_layout()
-plt.savefig("arvore_decisao.png", dpi=300, bbox_inches="tight")
-plt.close()
-
-
-# ============================================================
-# 12. FUNÇÃO DE PREDIÇÃO
+# 1. DADOS + 2-11. TREINO, AVALIAÇÃO, GRÁFICOS (CACHEADO)
 # ============================================================
 
 # Cor associada a cada classe, usada nos "chips" de resultado da interface
@@ -251,26 +105,176 @@ CORES_SITUACAO = {
     "Reprovado": "#ef4444",
 }
 
+features_numericas = ["Horas_de_estudo", "Faltas", "Nota"]
+
+
+@st.cache_resource(show_spinner="Treinando e otimizando o modelo...")
+def treinar_modelo():
+    np.random.seed(42)
+
+    N_ALUNOS = 500
+
+    horas_estudo = np.random.uniform(0, 15, N_ALUNOS)
+
+    faltas = np.random.poisson(lam=7, size=N_ALUNOS)
+    faltas = np.clip(faltas, 0, 30)
+
+    ruido = np.random.normal(0, 0.7, N_ALUNOS)
+
+    nota = (
+        2.5
+        + 0.55 * horas_estudo
+        - 0.08 * faltas
+        + ruido
+    )
+
+    nota = np.clip(nota, 0, 10)
+    nota = np.round(nota, 1)
+
+    situacao = np.select(
+        [
+            nota >= 7,
+            nota >= 5
+        ],
+        [
+            "Aprovado",
+            "Recuperação"
+        ],
+        default="Reprovado"
+    )
+
+    df = pd.DataFrame({
+        "Horas_de_estudo": horas_estudo.round(1),
+        "Faltas": faltas,
+        "Nota": nota,
+        "Situacao": situacao
+    })
+
+    # ---- Features (X) e target (y) ----
+    X = df[["Horas_de_estudo", "Faltas", "Nota"]]
+    y = df["Situacao"]
+
+    # ---- Divisão treino / teste ----
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.20, random_state=42, stratify=y
+    )
+
+    # ---- Pré-processamento ----
+    features_categoricas = []
+
+    preprocessador = ColumnTransformer(
+        transformers=[
+            ("numericas", "passthrough", features_numericas),
+            ("categoricas", OneHotEncoder(handle_unknown="ignore"), features_categoricas)
+        ],
+        remainder="drop"
+    )
+
+    # ---- Modelo base ----
+    modelo_base = Pipeline(
+        steps=[
+            ("preprocessamento", preprocessador),
+            ("modelo", DecisionTreeClassifier(random_state=42))
+        ]
+    )
+
+    # ---- GridSearchCV ----
+    param_grid = {
+        "modelo__max_depth": [2, 3, 4, 5, None],
+        "modelo__min_samples_split": [2, 5, 10, 20],
+        "modelo__min_samples_leaf": [1, 2, 5, 10]
+    }
+
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+    grid_search = GridSearchCV(
+        estimator=modelo_base,
+        param_grid=param_grid,
+        cv=cv,
+        scoring="accuracy",
+        n_jobs=-1,
+        refit=True
+    )
+
+    grid_search.fit(X_train, y_train)
+
+    modelo = grid_search.best_estimator_
+
+    # ---- Avaliação no teste ----
+    y_pred = modelo.predict(X_test)
+    acuracia = accuracy_score(y_test, y_pred)
+    relatorio = classification_report(y_test, y_pred, zero_division=0)
+
+    # ---- Matriz de confusão ----
+    arvore = modelo.named_steps["modelo"]
+    classes = arvore.classes_
+    matriz = confusion_matrix(y_test, y_pred, labels=classes)
+
+    fig_matriz, ax_matriz = plt.subplots(figsize=(7, 6))
+    disp = ConfusionMatrixDisplay(confusion_matrix=matriz, display_labels=classes)
+    disp.plot(ax=ax_matriz, cmap="Purples", colorbar=False)
+    ax_matriz.set_title("Matriz de Confusão - Situação dos Alunos", fontsize=14)
+    fig_matriz.tight_layout()
+
+    # ---- Validação cruzada ----
+    scores_cv = cross_val_score(modelo, X_train, y_train, cv=cv, scoring="accuracy", n_jobs=-1)
+
+    # ---- Importância das features ----
+    importancias = arvore.feature_importances_
+    df_importancias = pd.DataFrame({
+        "Feature": features_numericas,
+        "Importancia": importancias
+    }).sort_values("Importancia", ascending=False)
+
+    fig_importancias, ax_imp = plt.subplots(figsize=(8, 5))
+    ax_imp.barh(df_importancias["Feature"], df_importancias["Importancia"], color="#7c3aed")
+    ax_imp.set_xlabel("Importância")
+    ax_imp.set_ylabel("Feature")
+    ax_imp.set_title("Importância das Features")
+    ax_imp.invert_yaxis()
+    fig_importancias.tight_layout()
+
+    # ---- Visualização da árvore ----
+    fig_arvore, ax_arvore = plt.subplots(figsize=(22, 12))
+    plot_tree(
+        arvore,
+        feature_names=features_numericas,
+        class_names=arvore.classes_,
+        filled=True,
+        rounded=True,
+        proportion=False,
+        precision=2,
+        fontsize=10,
+        ax=ax_arvore,
+    )
+    ax_arvore.set_title("Árvore de Decisão - Classificação da Situação dos Alunos", fontsize=18)
+    fig_arvore.tight_layout()
+
+    return {
+        "df": df,
+        "modelo": modelo,
+        "melhores_params": grid_search.best_params_,
+        "melhor_score_cv": grid_search.best_score_,
+        "acuracia_teste": acuracia,
+        "relatorio": relatorio,
+        "fig_matriz": fig_matriz,
+        "scores_cv": scores_cv,
+        "df_importancias": df_importancias,
+        "fig_importancias": fig_importancias,
+        "fig_arvore": fig_arvore,
+    }
+
+
+resultado_treino = treinar_modelo()
+modelo = resultado_treino["modelo"]
+arvore = modelo.named_steps["modelo"]
+
+
+# ============================================================
+# 12. FUNÇÃO DE PREDIÇÃO
+# ============================================================
 
 def prever_situacao(horas, faltas, nota):
-
-    if horas is None or faltas is None or nota is None:
-        raise gr.Error("Preencha todos os campos.")
-
-    try:
-        horas = float(horas)
-        faltas = float(faltas)
-        nota = float(nota)
-    except (TypeError, ValueError):
-        raise gr.Error("Informe apenas valores numéricos.")
-
-    if horas < 0 or horas > 24:
-        raise gr.Error("Horas de estudo deve estar entre 0 e 24 horas.")
-    if faltas < 0 or faltas > 30:
-        raise gr.Error("Faltas deve estar entre 0 e 30.")
-    if nota < 0 or nota > 10:
-        raise gr.Error("A nota deve estar entre 0 e 10.")
-
     aluno = pd.DataFrame(
         [[horas, faltas, nota]],
         columns=["Horas_de_estudo", "Faltas", "Nota"]
@@ -284,9 +288,12 @@ def prever_situacao(horas, faltas, nota):
         for classe, probabilidade in zip(arvore.classes_, probabilidades)
     }
 
+    return previsao, probabilidades_formatadas
+
+
+def render_resultado_html(previsao, probabilidades_formatadas):
     cor = CORES_SITUACAO.get(previsao, "#7c3aed")
 
-    # Card de resultado em HTML, com "chip" colorido e barras de probabilidade
     barras_html = ""
     for classe, probabilidade in sorted(
         probabilidades_formatadas.items(), key=lambda item: item[1], reverse=True
@@ -335,143 +342,145 @@ def prever_situacao(horas, faltas, nota):
         {barras_html}
     </div>
     """
-
     return resultado_html
 
 
-# ============================================================
-# 13. INTERFACE GRADIO — TEMA ROXO
-# ============================================================
-
-tema_roxo = gr.themes.Soft(
-    primary_hue="purple",
-    secondary_hue="violet",
-    neutral_hue="slate",
-    font=[gr.themes.GoogleFont("Poppins"), "ui-sans-serif", "system-ui"],
-).set(
-    body_background_fill="linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)",
-    block_background_fill="white",
-    block_border_color="#e9d5ff",
-    block_radius="18px",
-    block_shadow="0 8px 24px rgba(124, 58, 237, 0.08)",
-    button_primary_background_fill="linear-gradient(90deg, #7c3aed 0%, #a855f7 100%)",
-    button_primary_background_fill_hover="linear-gradient(90deg, #6d28d9 0%, #9333ea 100%)",
-    button_primary_text_color="white",
-    input_background_fill="#faf5ff",
-    input_border_color="#ddd6fe",
-    slider_color="#7c3aed",
-)
-
-# CSS extra para refinar cabeçalho, cards e detalhes que o theme não cobre
-CSS_EXTRA = """
-#cabecalho {
-    background: linear-gradient(90deg, #7c3aed 0%, #a855f7 60%, #c084fc 100%);
-    padding: 28px 32px;
-    border-radius: 20px;
-    color: white !important;
-    margin-bottom: 8px;
-}
-#cabecalho h1, #cabecalho p {
-    color: white !important;
-}
-#rodape {
-    text-align: center;
-    color: #8b5cf6;
-    font-size: 13px;
-    margin-top: 10px;
-}
-.gradio-container {
-    max-width: 980px !important;
-    margin: auto !important;
-}
+PLACEHOLDER_HTML = """
+<div style="
+    border: 1px dashed #ddd6fe;
+    border-radius: 16px;
+    padding: 30px;
+    text-align:center;
+    color:#8b5cf6;
+">
+    Preencha os dados e clique em <b>Prever situação</b>.
+</div>
 """
 
-with gr.Blocks(theme=tema_roxo, css=CSS_EXTRA, title="Previsão da Situação do Aluno") as interface:
 
-    with gr.Column(elem_id="cabecalho"):
-        gr.Markdown(
-            """
-            # 🎓 Previsão da Situação do Aluno
-            Preencha os dados abaixo para estimar se o aluno será **Aprovado**,
-            ficará em **Recuperação** ou será **Reprovado** — usando um modelo
-            de Árvore de Decisão.
-            """
-        )
+# ============================================================
+# 13. INTERFACE STREAMLIT — TEMA ROXO
+# ============================================================
 
-    with gr.Row(equal_height=True):
+st.markdown(
+    """
+    <div id="cabecalho">
+        <h1>🎓 Previsão da Situação do Aluno</h1>
+        <p>Preencha os dados abaixo para estimar se o aluno será <b>Aprovado</b>,
+        ficará em <b>Recuperação</b> ou será <b>Reprovado</b> — usando um modelo
+        de Árvore de Decisão.</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-        with gr.Column(scale=1, min_width=320):
-            gr.Markdown("### 📋 Dados do aluno")
+col_form, col_resultado = st.columns(2, gap="large")
 
-            horas_input = gr.Number(
-                label="⏱️ Horas de estudo por semana",
-                minimum=0, maximum=24, value=6, step=0.5,
-            )
-            faltas_input = gr.Number(
-                label="📅 Número de faltas",
-                minimum=0, maximum=30, value=2, step=1,
-            )
-            nota_input = gr.Number(
-                label="📝 Nota",
-                minimum=0, maximum=10, value=7, step=0.1,
-            )
+with col_form:
+    st.markdown("### 📋 Dados do aluno")
 
-            botao = gr.Button("🔮 Prever situação", variant="primary", size="lg")
-
-            gr.Examples(
-                examples=[
-                    [10, 1, 9.0],
-                    [6, 3, 7.0],
-                    [4, 8, 5.5],
-                    [2, 15, 3.5],
-                ],
-                inputs=[horas_input, faltas_input, nota_input],
-                label="✨ Exemplos rápidos",
-            )
-
-        with gr.Column(scale=1, min_width=320):
-            gr.Markdown("### 📊 Resultado")
-            resultado_output = gr.HTML(
-                value="""
-                <div style="
-                    border: 1px dashed #ddd6fe;
-                    border-radius: 16px;
-                    padding: 30px;
-                    text-align:center;
-                    color:#8b5cf6;
-                ">
-                    Preencha os dados e clique em <b>Prever situação</b>.
-                </div>
-                """
-            )
-
-    gr.Markdown(
-        """
-        <div id="rodape">
-        ⚠️ Modelo demonstrativo treinado com dados sintéticos.
-        Para decisões acadêmicas reais, utilize dados históricos representativos.
-        </div>
-        """
+    horas_input = st.number_input(
+        "⏱️ Horas de estudo por semana",
+        min_value=0.0, max_value=24.0, value=6.0, step=0.5,
+    )
+    faltas_input = st.number_input(
+        "📅 Número de faltas",
+        min_value=0, max_value=30, value=2, step=1,
+    )
+    nota_input = st.number_input(
+        "📝 Nota",
+        min_value=0.0, max_value=10.0, value=7.0, step=0.1,
     )
 
-    botao.click(
-        fn=prever_situacao,
-        inputs=[horas_input, faltas_input, nota_input],
-        outputs=resultado_output,
+    botao = st.button("🔮 Prever situação", type="primary", use_container_width=True)
+
+    st.markdown("**✨ Exemplos rápidos**")
+    exemplos = {
+        "10h estudo / 1 falta / nota 9.0": (10, 1, 9.0),
+        "6h estudo / 3 faltas / nota 7.0": (6, 3, 7.0),
+        "4h estudo / 8 faltas / nota 5.5": (4, 8, 5.5),
+        "2h estudo / 15 faltas / nota 3.5": (2, 15, 3.5),
+    }
+    exemplo_escolhido = st.selectbox(
+        "Escolha um exemplo e clique em Prever situação",
+        options=["—"] + list(exemplos.keys()),
+        label_visibility="collapsed",
     )
+
+with col_resultado:
+    st.markdown("### 📊 Resultado")
+    resultado_placeholder = st.empty()
+
+    # Se um exemplo foi escolhido, usa os valores do exemplo; senão, usa os inputs
+    if exemplo_escolhido != "—":
+        horas_calc, faltas_calc, nota_calc = exemplos[exemplo_escolhido]
+    else:
+        horas_calc, faltas_calc, nota_calc = horas_input, faltas_input, nota_input
+
+    if botao:
+        try:
+            horas_val = float(horas_calc)
+            faltas_val = float(faltas_calc)
+            nota_val = float(nota_calc)
+
+            if horas_val < 0 or horas_val > 24:
+                st.error("Horas de estudo deve estar entre 0 e 24 horas.")
+            elif faltas_val < 0 or faltas_val > 30:
+                st.error("Faltas deve estar entre 0 e 30.")
+            elif nota_val < 0 or nota_val > 10:
+                st.error("A nota deve estar entre 0 e 10.")
+            else:
+                previsao, probabilidades = prever_situacao(horas_val, faltas_val, nota_val)
+                resultado_placeholder.markdown(
+                    render_resultado_html(previsao, probabilidades),
+                    unsafe_allow_html=True,
+                )
+        except (TypeError, ValueError):
+            st.error("Informe apenas valores numéricos.")
+    else:
+        resultado_placeholder.markdown(PLACEHOLDER_HTML, unsafe_allow_html=True)
+
+st.markdown(
+    """
+    <div id="rodape">
+    ⚠️ Modelo demonstrativo treinado com dados sintéticos.
+    Para decisões acadêmicas reais, utilize dados históricos representativos.
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 # ============================================================
-# 14. EXECUÇÃO
+# 14. DETALHES TÉCNICOS DO MODELO (equivalente aos prints do script original)
 # ============================================================
 
-if __name__ == "__main__":
-    print("\n========================================")
-    print("Aplicação iniciada.")
-    print("Arquivos gerados:")
-    print(" - arvore_decisao.png")
-    print(" - matriz_confusao.png")
-    print(" - importancia_features.png")
-    print("========================================\n")
+with st.expander("🔧 Detalhes técnicos do modelo (dados, treino e avaliação)"):
+    st.markdown("#### Amostra dos dados")
+    st.dataframe(resultado_treino["df"].head())
 
-    interface.launch()
+    st.markdown("#### Distribuição das classes")
+    st.dataframe(resultado_treino["df"]["Situacao"].value_counts())
+
+    st.markdown("#### Melhores parâmetros (GridSearchCV)")
+    st.json(resultado_treino["melhores_params"])
+    st.write(f"Melhor acurácia média da validação: **{resultado_treino['melhor_score_cv']:.4f}**")
+
+    st.markdown("#### Avaliação no conjunto de teste")
+    st.write(f"Acurácia: **{resultado_treino['acuracia_teste']:.4f}**")
+    st.code(resultado_treino["relatorio"])
+
+    st.markdown("#### Matriz de confusão")
+    st.pyplot(resultado_treino["fig_matriz"])
+
+    st.markdown("#### Validação cruzada")
+    st.write("Scores:", resultado_treino["scores_cv"])
+    st.write(f"Média: {resultado_treino['scores_cv'].mean():.4f}")
+    st.write(f"Desvio padrão: {resultado_treino['scores_cv'].std():.4f}")
+
+    st.markdown("#### Importância das features")
+    st.dataframe(resultado_treino["df_importancias"])
+    st.pyplot(resultado_treino["fig_importancias"])
+
+    st.markdown("#### Árvore de decisão")
+    st.pyplot(resultado_treino["fig_arvore"])
