@@ -42,6 +42,11 @@ CSS_EXTRA = """
     background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
 }
 
+/* Texto padrão em preto */
+.stApp, .stMarkdown, p, span, label, div, h1, h2, h3, h4, h5, h6 {
+    color: #000000;
+}
+
 #cabecalho {
     background: linear-gradient(90deg, #7c3aed 0%, #a855f7 60%, #c084fc 100%);
     padding: 28px 32px;
@@ -76,6 +81,7 @@ div[data-testid="stNumberInput"] input {
     background-color: #faf5ff;
     border: 1px solid #ddd6fe;
     border-radius: 10px;
+    color: #000000;
 }
 
 .block-container {
