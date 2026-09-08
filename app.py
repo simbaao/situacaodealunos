@@ -84,27 +84,6 @@ div[data-testid="stNumberInput"] input {
     color: #000000;
 }
 
-/* ---- Correção: selectbox "Exemplos rápidos" com fundo claro e texto preto ---- */
-div[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
-    background-color: #faf5ff !important;
-    border: 1px solid #ddd6fe !important;
-    color: #000000 !important;
-}
-div[data-testid="stSelectbox"] * {
-    color: #000000 !important;
-}
-/* Lista de opções (popup) do selectbox */
-ul[role="listbox"] {
-    background-color: #ffffff !important;
-}
-ul[role="listbox"] li {
-    color: #000000 !important;
-    background-color: #ffffff !important;
-}
-ul[role="listbox"] li:hover {
-    background-color: #f3e8ff !important;
-}
-
 .block-container {
     max-width: 980px;
     padding-top: 1.5rem;
@@ -125,7 +104,7 @@ st.markdown(CSS_EXTRA, unsafe_allow_html=True)
 # 1. DADOS + 2-11. TREINO, AVALIAÇÃO, GRÁFICOS (CACHEADO)
 # ============================================================
 
-# Cor associada a cada classe, usada nos "chips" de resultado da interface
+# Cor associada a cada classe, usada nos elementos visuais da interface
 CORES_SITUACAO = {
     "Aprovado": "#22c55e",
     "Recuperação": "#f59e0b",
@@ -319,23 +298,43 @@ def prever_situacao(horas, faltas, nota):
 
 
 def render_resultado_html(previsao, probabilidades_formatadas):
-    cor = CORES_SITUACAO.get(previsao, "#7c3aed")
+    """
+    Renderiza o resultado da previsão como um gráfico de rosca (donut chart)
+    feito em CSS puro (conic-gradient), com um selo de confiança central
+    e uma legenda lateral — visual mais elegante que barras simples.
+    """
+    cor_principal = CORES_SITUACAO.get(previsao, "#7c3aed")
 
-    barras_html = ""
-    for classe, probabilidade in sorted(
+    # Ordena as classes por probabilidade decrescente
+    itens_ordenados = sorted(
         probabilidades_formatadas.items(), key=lambda item: item[1], reverse=True
-    ):
+    )
+    confianca = itens_ordenados[0][1]
+
+    # Monta os "stops" do conic-gradient (donut chart)
+    stops = []
+    acumulado = 0.0
+    for classe, probabilidade in itens_ordenados:
         cor_classe = CORES_SITUACAO.get(classe, "#7c3aed")
-        largura = max(probabilidade * 100, 3)
-        barras_html += f"""
-        <div style="margin-bottom:10px;">
-            <div style="display:flex; justify-content:space-between; font-size:13px; color:#000000 !important; margin-bottom:4px;">
-                <span style="color:#000000 !important;">{classe}</span>
-                <span style="color:#000000 !important;">{probabilidade:.1%}</span>
-            </div>
-            <div style="background:#ede9fe; border-radius:8px; height:10px; overflow:hidden;">
-                <div style="width:{largura}%; background:{cor_classe}; height:100%; border-radius:8px;"></div>
-            </div>
+        inicio = acumulado * 360
+        acumulado += probabilidade
+        fim = acumulado * 360
+        stops.append(f"{cor_classe} {inicio:.2f}deg {fim:.2f}deg")
+    gradiente = ", ".join(stops)
+
+    # Legenda lateral com barra fininha de progresso por classe
+    legenda_html = ""
+    for classe, probabilidade in itens_ordenados:
+        cor_classe = CORES_SITUACAO.get(classe, "#7c3aed")
+        legenda_html += f"""
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+            <span style="
+                width:10px; height:10px; border-radius:50%;
+                background:{cor_classe}; flex-shrink:0;
+                box-shadow: 0 0 0 3px {cor_classe}22;
+            "></span>
+            <span style="font-size:13px; color:#000000 !important; flex:1;">{classe}</span>
+            <span style="font-size:13px; font-weight:700; color:#000000 !important;">{probabilidade:.1%}</span>
         </div>
         """
 
@@ -343,30 +342,57 @@ def render_resultado_html(previsao, probabilidades_formatadas):
     <div style="
         background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
         border: 1px solid #ddd6fe;
-        border-radius: 16px;
-        padding: 20px 22px;
+        border-radius: 18px;
+        padding: 24px 26px;
         font-family: inherit;
     ">
-        <div style="font-size:13px; color:#000000 !important; letter-spacing:0.05em; text-transform:uppercase; font-weight:600;">
-            Situação prevista
+        <div style="font-size:12px; color:#7c3aed !important; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; margin-bottom:16px;">
+            Diagnóstico do modelo
         </div>
-        <div style="
-            display:inline-block;
-            margin-top:8px;
-            margin-bottom:18px;
-            padding:6px 16px;
-            border-radius:999px;
-            background:{cor};
-            color:white;
-            font-weight:700;
-            font-size:18px;
-        ">
-            {previsao}
+
+        <div style="display:flex; align-items:center; gap:28px; flex-wrap:wrap;">
+
+            <div style="position:relative; width:150px; height:150px; flex-shrink:0;">
+                <div style="
+                    width:150px; height:150px; border-radius:50%;
+                    background: conic-gradient({gradiente});
+                    box-shadow: 0 8px 20px -6px {cor_principal}55;
+                "></div>
+                <div style="
+                    position:absolute; top:50%; left:50%;
+                    transform:translate(-50%, -50%);
+                    width:98px; height:98px; border-radius:50%;
+                    background:#faf5ff;
+                    display:flex; flex-direction:column;
+                    align-items:center; justify-content:center;
+                    box-shadow: inset 0 0 0 1px #ddd6fe;
+                ">
+                    <div style="font-size:22px; font-weight:800; color:{cor_principal} !important; line-height:1;">
+                        {confianca:.0%}
+                    </div>
+                    <div style="font-size:10px; color:#000000 !important; text-transform:uppercase; letter-spacing:0.05em; margin-top:4px;">
+                        confiança
+                    </div>
+                </div>
+            </div>
+
+            <div style="flex:1; min-width:180px;">
+                <div style="
+                    display:inline-block;
+                    padding:6px 16px;
+                    border-radius:999px;
+                    background:{cor_principal};
+                    color:white;
+                    font-weight:700;
+                    font-size:16px;
+                    margin-bottom:14px;
+                ">
+                    {previsao}
+                </div>
+                {legenda_html}
+            </div>
+
         </div>
-        <div style="font-size:13px; color:#000000 !important; font-weight:600; margin-bottom:10px;">
-            Probabilidade por classe
-        </div>
-        {barras_html}
     </div>
     """
     return resultado_html
@@ -421,28 +447,11 @@ with col_form:
 
     botao = st.button("🔮 Prever situação", type="primary", use_container_width=True)
 
-    st.markdown("**✨ Exemplos rápidos**")
-    exemplos = {
-        "10h estudo / 1 falta / nota 9.0": (10, 1, 9.0),
-        "6h estudo / 3 faltas / nota 7.0": (6, 3, 7.0),
-        "4h estudo / 8 faltas / nota 5.5": (4, 8, 5.5),
-        "2h estudo / 15 faltas / nota 3.5": (2, 15, 3.5),
-    }
-    exemplo_escolhido = st.selectbox(
-        "Escolha um exemplo e clique em Prever situação",
-        options=["—"] + list(exemplos.keys()),
-        label_visibility="collapsed",
-    )
-
 with col_resultado:
     st.markdown("### 📊 Resultado")
     resultado_placeholder = st.empty()
 
-    # Se um exemplo foi escolhido, usa os valores do exemplo; senão, usa os inputs
-    if exemplo_escolhido != "—":
-        horas_calc, faltas_calc, nota_calc = exemplos[exemplo_escolhido]
-    else:
-        horas_calc, faltas_calc, nota_calc = horas_input, faltas_input, nota_input
+    horas_calc, faltas_calc, nota_calc = horas_input, faltas_input, nota_input
 
     if botao:
         try:
