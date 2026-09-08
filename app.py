@@ -84,6 +84,27 @@ div[data-testid="stNumberInput"] input {
     color: #000000;
 }
 
+/* ---- Correção: selectbox "Exemplos rápidos" com fundo claro e texto preto ---- */
+div[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
+    background-color: #faf5ff !important;
+    border: 1px solid #ddd6fe !important;
+    color: #000000 !important;
+}
+div[data-testid="stSelectbox"] * {
+    color: #000000 !important;
+}
+/* Lista de opções (popup) do selectbox */
+ul[role="listbox"] {
+    background-color: #ffffff !important;
+}
+ul[role="listbox"] li {
+    color: #000000 !important;
+    background-color: #ffffff !important;
+}
+ul[role="listbox"] li:hover {
+    background-color: #f3e8ff !important;
+}
+
 .block-container {
     max-width: 980px;
     padding-top: 1.5rem;
@@ -308,9 +329,9 @@ def render_resultado_html(previsao, probabilidades_formatadas):
         largura = max(probabilidade * 100, 3)
         barras_html += f"""
         <div style="margin-bottom:10px;">
-            <div style="display:flex; justify-content:space-between; font-size:13px; color:#4c1d95; margin-bottom:4px;">
-                <span>{classe}</span>
-                <span>{probabilidade:.1%}</span>
+            <div style="display:flex; justify-content:space-between; font-size:13px; color:#000000 !important; margin-bottom:4px;">
+                <span style="color:#000000 !important;">{classe}</span>
+                <span style="color:#000000 !important;">{probabilidade:.1%}</span>
             </div>
             <div style="background:#ede9fe; border-radius:8px; height:10px; overflow:hidden;">
                 <div style="width:{largura}%; background:{cor_classe}; height:100%; border-radius:8px;"></div>
@@ -326,7 +347,7 @@ def render_resultado_html(previsao, probabilidades_formatadas):
         padding: 20px 22px;
         font-family: inherit;
     ">
-        <div style="font-size:13px; color:#7c3aed; letter-spacing:0.05em; text-transform:uppercase; font-weight:600;">
+        <div style="font-size:13px; color:#000000 !important; letter-spacing:0.05em; text-transform:uppercase; font-weight:600;">
             Situação prevista
         </div>
         <div style="
@@ -342,7 +363,7 @@ def render_resultado_html(previsao, probabilidades_formatadas):
         ">
             {previsao}
         </div>
-        <div style="font-size:13px; color:#6d28d9; font-weight:600; margin-bottom:10px;">
+        <div style="font-size:13px; color:#000000 !important; font-weight:600; margin-bottom:10px;">
             Probabilidade por classe
         </div>
         {barras_html}
@@ -357,7 +378,7 @@ PLACEHOLDER_HTML = """
     border-radius: 16px;
     padding: 30px;
     text-align:center;
-    color:#8b5cf6;
+    color:#000000 !important;
 ">
     Preencha os dados e clique em <b>Prever situação</b>.
 </div>
