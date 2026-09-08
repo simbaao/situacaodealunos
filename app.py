@@ -1,6 +1,6 @@
 # ============================================================
 # PREVISÃO DA SITUAÇÃO DE ALUNOS
-# Árvore de Decisão + Avaliação + GridSearchCV + Streamlit (tema roxo)
+# Árvore de Decisão + Avaliação + GridSearchCV + Streamlit (tema escuro)
 # ============================================================
 
 import numpy as np
@@ -27,7 +27,7 @@ from sklearn.pipeline import Pipeline
 
 
 # ============================================================
-# CONFIGURAÇÃO DA PÁGINA + CSS (TEMA ROXO)
+# CONFIGURAÇÃO DA PÁGINA + CSS (TEMA ESCURO)
 # ============================================================
 
 st.set_page_config(
@@ -39,12 +39,12 @@ st.set_page_config(
 CSS_EXTRA = """
 <style>
 .stApp {
-    background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+    background: #000000;
 }
 
-/* Texto padrão em preto */
+/* Texto padrão em branco */
 .stApp, .stMarkdown, p, span, label, div, h1, h2, h3, h4, h5, h6 {
-    color: #000000;
+    color: #ffffff !important;
 }
 
 #cabecalho {
@@ -59,8 +59,8 @@ CSS_EXTRA = """
 }
 
 section[data-testid="stSidebar"] {
-    background: #faf5ff;
-    border-right: 1px solid #e9d5ff;
+    background: #0a0a0a;
+    border-right: 1px solid #333333;
 }
 
 div.stButton > button {
@@ -78,10 +78,17 @@ div.stButton > button:hover {
 }
 
 div[data-testid="stNumberInput"] input {
-    background-color: #faf5ff;
-    border: 1px solid #ddd6fe;
+    background-color: #1a1a1a;
+    border: 1px solid #444444;
+    color: #ffffff !important;
     border-radius: 10px;
-    color: #000000;
+}
+
+/* Expander e outros containers com fundo escuro */
+div[data-testid="stExpander"] {
+    background-color: #0a0a0a;
+    border: 1px solid #333333;
+    border-radius: 10px;
 }
 
 .block-container {
@@ -91,7 +98,7 @@ div[data-testid="stNumberInput"] input {
 
 #rodape {
     text-align: center;
-    color: #8b5cf6;
+    color: #c084fc !important;
     font-size: 13px;
     margin-top: 20px;
 }
@@ -301,9 +308,9 @@ def render_resultado_html(previsao, probabilidades_formatadas):
     """
     Renderiza o resultado da previsão como um gráfico de rosca (donut chart)
     feito em CSS puro (conic-gradient), com um selo de confiança central
-    e uma legenda lateral — visual mais elegante que barras simples.
+    e uma legenda lateral — adaptado para o tema escuro (fundo preto).
     """
-    cor_principal = CORES_SITUACAO.get(previsao, "#7c3aed")
+    cor_principal = CORES_SITUACAO.get(previsao, "#a855f7")
 
     # Ordena as classes por probabilidade decrescente
     itens_ordenados = sorted(
@@ -315,38 +322,38 @@ def render_resultado_html(previsao, probabilidades_formatadas):
     stops = []
     acumulado = 0.0
     for classe, probabilidade in itens_ordenados:
-        cor_classe = CORES_SITUACAO.get(classe, "#7c3aed")
+        cor_classe = CORES_SITUACAO.get(classe, "#a855f7")
         inicio = acumulado * 360
         acumulado += probabilidade
         fim = acumulado * 360
         stops.append(f"{cor_classe} {inicio:.2f}deg {fim:.2f}deg")
     gradiente = ", ".join(stops)
 
-    # Legenda lateral com barra fininha de progresso por classe
+    # Legenda lateral
     legenda_html = ""
     for classe, probabilidade in itens_ordenados:
-        cor_classe = CORES_SITUACAO.get(classe, "#7c3aed")
+        cor_classe = CORES_SITUACAO.get(classe, "#a855f7")
         legenda_html += f"""
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
             <span style="
                 width:10px; height:10px; border-radius:50%;
                 background:{cor_classe}; flex-shrink:0;
-                box-shadow: 0 0 0 3px {cor_classe}22;
+                box-shadow: 0 0 0 3px {cor_classe}33;
             "></span>
-            <span style="font-size:13px; color:#000000 !important; flex:1;">{classe}</span>
-            <span style="font-size:13px; font-weight:700; color:#000000 !important;">{probabilidade:.1%}</span>
+            <span style="font-size:13px; color:#ffffff !important; flex:1;">{classe}</span>
+            <span style="font-size:13px; font-weight:700; color:#ffffff !important;">{probabilidade:.1%}</span>
         </div>
         """
 
     resultado_html = f"""
     <div style="
-        background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
-        border: 1px solid #ddd6fe;
+        background: #0d0d0d;
+        border: 1px solid #333333;
         border-radius: 18px;
         padding: 24px 26px;
         font-family: inherit;
     ">
-        <div style="font-size:12px; color:#7c3aed !important; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; margin-bottom:16px;">
+        <div style="font-size:12px; color:#c084fc !important; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; margin-bottom:16px;">
             Diagnóstico do modelo
         </div>
 
@@ -356,21 +363,21 @@ def render_resultado_html(previsao, probabilidades_formatadas):
                 <div style="
                     width:150px; height:150px; border-radius:50%;
                     background: conic-gradient({gradiente});
-                    box-shadow: 0 8px 20px -6px {cor_principal}55;
+                    box-shadow: 0 8px 20px -6px {cor_principal}66;
                 "></div>
                 <div style="
                     position:absolute; top:50%; left:50%;
                     transform:translate(-50%, -50%);
                     width:98px; height:98px; border-radius:50%;
-                    background:#faf5ff;
+                    background:#000000;
                     display:flex; flex-direction:column;
                     align-items:center; justify-content:center;
-                    box-shadow: inset 0 0 0 1px #ddd6fe;
+                    box-shadow: inset 0 0 0 1px #444444;
                 ">
                     <div style="font-size:22px; font-weight:800; color:{cor_principal} !important; line-height:1;">
                         {confianca:.0%}
                     </div>
-                    <div style="font-size:10px; color:#000000 !important; text-transform:uppercase; letter-spacing:0.05em; margin-top:4px;">
+                    <div style="font-size:10px; color:#ffffff !important; text-transform:uppercase; letter-spacing:0.05em; margin-top:4px;">
                         confiança
                     </div>
                 </div>
@@ -400,11 +407,11 @@ def render_resultado_html(previsao, probabilidades_formatadas):
 
 PLACEHOLDER_HTML = """
 <div style="
-    border: 1px dashed #ddd6fe;
+    border: 1px dashed #444444;
     border-radius: 16px;
     padding: 30px;
     text-align:center;
-    color:#000000 !important;
+    color:#ffffff !important;
 ">
     Preencha os dados e clique em <b>Prever situação</b>.
 </div>
@@ -412,7 +419,7 @@ PLACEHOLDER_HTML = """
 
 
 # ============================================================
-# 13. INTERFACE STREAMLIT — TEMA ROXO
+# 13. INTERFACE STREAMLIT — TEMA ESCURO
 # ============================================================
 
 st.markdown(
